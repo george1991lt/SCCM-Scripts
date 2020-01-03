@@ -39,17 +39,18 @@ $DiskSelector.TopMost            = $true
 
 ###################################################################################
 # Find Available Disks
-$availableDisks = foreach ($disk in Get-PhysicalDisk) {
+$availableDisks = foreach ($disk in Get-PhysicalDisk| Where-Object -FilterScript {$_.BusType -ne 'USB'}) {
 [string]$name = $disk.FriendlyName
 [string]$type = $disk.MediaType
-[string]$diskNumber = Get-Disk -FriendlyName $name | Select -ExpandProperty Number
+[string]$unqiueID = $disk.UniqueID
+[string]$diskNumber = Get-PhysicalDisk -UniqueId "*$unqiueID*" | Get-Disk | Select -ExpandProperty Number 
 [string]$numberName = "($diskNumber) $name"
 [int]$capacity = ($disk.size / 1GB)
-
+#-UniqueId $unqiueID | Select -ExpandProperty Number
 ###################################################################################
 # Add to the Array for DiskGrid
 $diskArray.Add(
-    [PSCUSTOMOBJECT] @{Name=$name;Type=$type;Capacity_GB="$capacity"}
+    [PSCUSTOMOBJECT] @{DiskNumber=$DiskNumber;Name=$name;Type=$type;Capacity_GB="$capacity"}
     )
 
 ###################################################################################
@@ -58,8 +59,18 @@ $diskSelect.Add(
     [PSCUSTOMOBJECT] @{Name=$numberName}
     )
 }
+$DiskGridSource = $diskArray | Sort-Object -Property $diskArray.DiskNumber 
 ###################################################################################
 # Set Rest of PowerShell Form
+
+$DiskGridLabel                   = New-Object system.Windows.Forms.Label
+$DiskGridLabel.Text              = 'Click on Disk Number For Which More Information Is Needed, Then Select "Disk Info":'
+$DiskGridLabel.AutoSize          = $true
+$DiskGridLabel.Width             = 35
+$DiskGridLabel.Height            = 10
+$DiskGridLabel.Location          = New-Object System.Drawing.Point(95,10)
+$DiskGridLabel.Font              = 'Microsoft Sans Serif,10'
+
 
 $DiskGrid                        = New-Object system.Windows.Forms.DataGridView
 $DiskGrid.Name                   = "DiskGrid"
@@ -68,7 +79,7 @@ $DiskGrid.height                 = 182
 $DiskGrid.location               = New-Object System.Drawing.Point(105,31)
 $DiskGrid.ColumnHeadersVisible   = $true
 $DiskGrid.ReadOnly               = $true
-$DiskGrid.DataSource             = $diskArray
+$DiskGrid.DataSource             = $diskArray 
 $DiskGrid.add_MouseHover($ShowHelp)
 
 $Disks                           = New-Object system.Windows.Forms.Label
@@ -115,7 +126,7 @@ $OSDropDown.add_MouseHover($ShowHelp)
 
 ###################################################################################
 # Add Items to OS Drop Down Selector
-Foreach ($item in ($diskSelect.name)) {
+Foreach ($item in ($diskSelect.Name)) {
     $OSDropDown.Items.Add($item) | Out-Null
     }
 
@@ -182,7 +193,8 @@ $DiskInfo.Add_Click({
     $DiskInformation.TopMost         = $true
     $DiskInformation.add_MouseHover($ShowHelp)
 
-    $getDisk = Get-Disk -FriendlyName $DiskGrid.SelectedCells.Value
+    $getDisk = Get-Disk -Number $DiskGrid.SelectedCells.Value
+    #-FriendlyName $DiskGrid.SelectedCells.Value
     
     $diskGet.Add(
         [PSCUSTOMOBJECT] @{Number=$getdisk.DiskNumber;Name=$getDisk.FriendlyName;SerialNumber=$getDisk.SerialNumber;HeathStatus=$getDisk.HealthStatus;Status=$getDisk.OperationalStatus;PartitionType=$getDisk.PartitionStyle}
@@ -231,8 +243,8 @@ $Select.Add_Click({
 
     $TSEnv.Value("OSDDiskIndex") = $tsOSD
     $TSEnv.Value("DataDrive") = $tsDTD
-    #Write-Host "OS Drive = $tsOSD"
-    #Write-Host "Data Drive = $tsDTD"
+    Write-Host "OS Drive = $tsOSD"
+    Write-Host "Data Drive = $tsDTD"
 
     $DiskSelector.Close()
 
@@ -240,7 +252,7 @@ $Select.Add_Click({
 
 ###################################################################################
 # Set the Form Controls
-$DiskSelector.controls.AddRange(@($Label1,$Disks,$Select,$DiskInfo,$DiskGrid,$OSLabel,$DataLabel,$OSDropDown,$DataDropDown,$DiskGridInfo,$Close))
+$DiskSelector.controls.AddRange(@($Label1,$Disks,$Select,$DiskInfo,$DiskGrid,$OSLabel,$DataLabel,$OSDropDown,$DataDropDown,$DiskGridInfo,$Close,$DiskGridLabel))
 
 [void]$DiskSelector.ShowDialog()
 [void]$DiskSelector.Activate()
